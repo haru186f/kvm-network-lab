@@ -1,8 +1,8 @@
 # KVM Network Lab 構築手順書
 
 ## 1. 目的
-本手順書は、AlmaLinux をホストOSとした KVM 環境上に
-複数の仮想ネットワークとルータVMを構築し、
+本手順書は、AlmaLinux をホストOSとした KVM 環境上に<br>
+複数の仮想ネットワークとルータVMを構築し、<br>
 ネットワーク間疎通を確認することを目的とする。
 
 ## 2. 前提条件
@@ -65,7 +65,7 @@ curl -O https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-G
 本構成では、libvirt の NAT ネットワークを 2 つ作成する。
 - network1
     - セグメント: 172.16.0.0/16
-    - ゲートウェイ: 172.168.255.254
+    - ゲートウェイ: 172.16.255.254
     - 用途: host01, host02
 - network2
     - セグメント: 172.17.0.0/16
@@ -80,11 +80,7 @@ network1.xmlを作成する。
   <name>network1</name>
   <bridge name='br-net1' stp='on' delay='0'/>
   <forward mode='nat'/>
-  <ip address='172.16.255.254' netmask='255.255.0.0'>
-    <dhcp>
-      <range start='172.16.0.1' end='172.16.255.253'/>
-    </dhcp>
-  </ip>
+  <ip address='172.16.255.254' netmask='255.255.0.0'/>
 </network>
 ```
 ネットワークを定義・起動する。
@@ -105,11 +101,7 @@ network2.xmlを作成する。
   <name>network2</name>
   <bridge name='br-net2' stp='on' delay='0'/>
   <forward mode='nat'/>
-  <ip address='172.17.255.254' netmask='255.255.0.0'>
-    <dhcp>
-      <range start='172.17.0.1' end='172.17.255.253'/>
-    </dhcp>
-  </ip>
+  <ip address='172.17.255.254' netmask='255.255.0.0'/>
 </network>
 
 ```
@@ -125,7 +117,149 @@ virsh net-list --all
 ```
 
 ## 5. VM 作成（cloud-init）
+本章では cloud-init を利用して、<br>
+ホスト VM（host01–host04）および ルータ VM (host00) を作成する。
 
-## 6. ルータVM（host00）設定
+### 5.1 meta-data 作成
+```bash
+cd /var/lib/libvirt/images/cloud-init
+vim meta-data.yaml
+```
+```bash
+instance-id: host01
+local-hostname: host01
+```
+※ host02〜host04、host00 作成時は<br>
+`instance-id` と `local-hostname` をそれぞれ変更する。
+
+### 5.2 ホスト用 user-data 作成 (host01-04)
+```bash
+vim user-data-host.yaml
+```
+```bash
+#cloud-config
+
+hostname: host01
+fqdn: host01.knowd.co.jp
+
+timezone: Asia/Tokyo
+locale: en_US.UTF-8
+
+users:
+  - default
+  - name: haru
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 ...
+
+disable_root: true
+ssh_pwauth: false
+
+package_update: true
+package_upgrade: false
+packages:
+  - vim
+  - chrony
+  - iproute
+  - iputils
+  - tcpdump
+  - traceroute
+  - bind-utils
+
+runcmd:
+  - systemctl enable --now chronyd
+  - systemctl disable --now firewalld
+  - systemctl set-default multi-user.target
+```
+※ host02〜host04 作成時は<br>
+`hostname` と `fqdn` をそれぞれ変更する。
+
+### 5.3 ルータ用 user-data 作成 (host00)
+```bash
+vim user-data-router.yaml
+```
+```bash
+#cloud-config
+
+hostname: host00
+fqdn: host00.knowd.co.jp
+
+timezone: Asia/Tokyo
+locale: en_US.UTF-8
+
+users:
+  - default
+  - name: haru
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 ...
+
+disable_root: true
+ssh_pwauth: false
+
+package_update: true
+package_upgrade: false
+packages:
+  - vim
+  - chrony
+  - iproute
+  - iputils
+  - nftables
+  - tcpdump
+  - traceroute
+  - bind-utils
+
+runcmd:
+  - systemctl enable --now chronyd
+  - systemctl enable --now nftables
+  - systemctl disable --now firewalld
+  - systemctl set-default multi-user.target
+  - echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.d/99-router.conf
+  - sysctl --system
+```
+
+### 5.4 Cloud-init seed ISO 作成
+```bash
+cd /var/lib/libvirt/images/cloud-init
+cloud-localds host01-seed.iso user-data-host.yaml meta-data.yaml
+```
+※ host02〜host04、host00 作成時は<br>
+seed ISO 名 と user-data を変更する。
+
+### 5.5 VM 作成 (host01-04, host00)
+```bash
+cd /var/lib/libvirt/images
+
+# Cloud Image をベースにディスク作成
+cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host01.qcow2
+
+# cloud-init seed ISO 作成
+cd /var/lib/libvirt/images/cloud-init
+cloud-localds host01-seed.iso user-data-host.yaml meta-data.yaml
+
+# VM 作成
+virt-install \
+  --name host01 \
+  --memory 1024 \
+  --vcpus 1 \
+  --disk path=/var/lib/libvirt/images/host01.qcow2,format=qcow2 \
+  --disk path=/var/lib/libvirt/images/cloud-init/host01-seed.iso,device=cdrom \
+  --os-variant almalinux9 \
+  --network network=network1,model=virtio \
+  --graphics none \
+  --console pty,target_type=serial \
+  --import
+```
+※ host02 は network1 を指定する。<br>
+※ host03・host04 は network2 を指定する。<br>
+※ host00 は `--network` を 3 回指定し、`default → network1 → network2` の順で接続する。
+
+## 6. VM 設定
 
 ## 7. 疎通確認

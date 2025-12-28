@@ -1,7 +1,7 @@
-#cloud-config (Host)
+#cloud-config
 
-hostname: host01
-fqdn: host01.knowd.co.jp
+hostname: host00
+fqdn: host00.knowd.co.jp
 
 timezone: Asia/Tokyo
 locale: en_US.UTF-8
@@ -26,11 +26,15 @@ packages:
   - chrony
   - iproute
   - iputils
+  - nftables
   - tcpdump
   - traceroute
   - bind-utils
 
 runcmd:
   - systemctl enable --now chronyd
+  - systemctl enable --now nftables
   - systemctl disable --now firewalld
   - systemctl set-default multi-user.target
+  - echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.d/99-router.conf
+  - sysctl --system

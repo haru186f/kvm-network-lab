@@ -1,0 +1,36 @@
+#cloud-config
+
+hostname: host01
+fqdn: host01.knowd.co.jp
+
+timezone: Asia/Tokyo
+locale: en_US.UTF-8
+
+users:
+  - default
+  - name: haru
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 ...
+
+disable_root: true
+ssh_pwauth: false
+
+package_update: true
+package_upgrade: false
+packages:
+  - vim
+  - chrony
+  - iproute
+  - iputils
+  - tcpdump
+  - traceroute
+  - bind-utils
+
+runcmd:
+  - systemctl enable --now chronyd
+  - systemctl disable --now firewalld
+  - systemctl set-default multi-user.target

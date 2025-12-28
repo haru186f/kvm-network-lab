@@ -2,9 +2,5 @@
     <name>network2</name>
     <bridge name='br-net2' stp='on' delay='0'/>
     <forward mode='nat'/>
-    <ip address='172.17.255.254' netmask='255.255.0.0'>
-        <dhcp>
-            <range start='172.17.0.1' end='172.17.255.253'/>
-        </dhcp>
-    </ip>
+    <ip address='172.17.255.254' netmask='255.255.0.0'/>
 </network>
