@@ -224,19 +224,22 @@ runcmd:
   - sysctl --system
 ```
 
-### 5.4 Cloud-init seed ISO 作成
+### 5.4 ディスク / cloud-init seed ISO 作成
 ```bash
+cd /var/lib/libvirt/images
+cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host01.qcow2
+
 cd /var/lib/libvirt/images/cloud-init
 cloud-localds host01-seed.iso user-data-host.yaml meta-data.yaml
 ```
 ※ host02〜host04、host00 作成時は<br>
-seed ISO 名 と user-data を変更する。
+ディスク名、seed ISO 名、user-data を変更する。
 
 ### 5.5 VM 作成 (host01-04, host00)
 ```bash
 cd /var/lib/libvirt/images
 
-# Cloud Image をベースにディスク作成
+
 cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host01.qcow2
 
 # cloud-init seed ISO 作成
