@@ -1,8 +1,5 @@
 #cloud-config
 
-hostname: host01
-fqdn: host01.knowd.co.jp
-
 timezone: Asia/Tokyo
 locale: en_US.UTF-8
 

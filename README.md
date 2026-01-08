@@ -25,6 +25,7 @@ LPIC-102の nmcli / ip コマンドの理解を深めるために、
 - cloud-init を利用したVMの作成
 - libvirt NAT ネットワークの作成（network1 / network2）
 - nmcli による IP アドレスおよびデフォルトルートの設定
+- ip による ネットワーク情報の確認
 - ルータ VM における IP フォワーディングの有効化
 - ping / traceroute を用いた異なるネットワーク間での疎通確認
 

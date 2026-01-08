@@ -54,8 +54,8 @@ virsh list --all
 
 ### 3.5 AlmaLinux Cloud Image 取得
 ```bash
-sudo mkdir -p /var/lib/libvirt/images/cloud-init
-sudo chown -R haru:haru /var/lib/libvirt/images/cloud-init
+sudo mkdir -p /var/lib/libvirt/cloud-init
+sudo chown -R haru:haru /var/lib/libvirt/cloud-init
 
 cd /var/lib/libvirt/images
 curl -O https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
@@ -75,6 +75,10 @@ curl -O https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-G
 
 ### 4.1 network1の作成
 network1.xmlを作成する。
+```bash
+cd /var/lib/libvirt/network
+vim network1.xml
+```
 ```bash
 <network>
   <name>network1</name>
@@ -97,13 +101,15 @@ virsh net-list --all
 ### 4.2 network2の作成
 network2.xmlを作成する。
 ```bash
+vim network2.xml
+```
+```bash
 <network>
   <name>network2</name>
   <bridge name='br-net2' stp='on' delay='0'/>
   <forward mode='nat'/>
   <ip address='172.17.255.254' netmask='255.255.0.0'/>
 </network>
-
 ```
 ネットワークを定義・起動する。
 ```bash
@@ -123,24 +129,20 @@ virsh net-list --all
 ### 5.1 meta-data 作成
 ```bash
 cd /var/lib/libvirt/images/cloud-init
-vim meta-data.yaml
+for i in {00..04}; do
+  cat > meta-data-host${i}.yaml << EOF
+instance-id: host${i}
+local-hostname: host${i}
+EOF
+done
 ```
-```bash
-instance-id: host01
-local-hostname: host01
-```
-※ host02〜host04、host00 作成時は<br>
-`instance-id` と `local-hostname` をそれぞれ変更する。
 
-### 5.2 ホスト用 user-data 作成 (host01-04)
+### 5.2 ホスト用 user-data 作成
 ```bash
 vim user-data-host.yaml
 ```
 ```bash
 #cloud-config
-
-hostname: host01
-fqdn: host01.knowd.co.jp
 
 timezone: Asia/Tokyo
 locale: en_US.UTF-8
@@ -174,18 +176,13 @@ runcmd:
   - systemctl disable --now firewalld
   - systemctl set-default multi-user.target
 ```
-※ host02〜host04 作成時は<br>
-`hostname` と `fqdn` をそれぞれ変更する。
 
-### 5.3 ルータ用 user-data 作成 (host00)
+### 5.3 ルータ用 user-data 作成
 ```bash
 vim user-data-router.yaml
 ```
 ```bash
 #cloud-config
-
-hostname: host00
-fqdn: host00.knowd.co.jp
 
 timezone: Asia/Tokyo
 locale: en_US.UTF-8
@@ -224,29 +221,25 @@ runcmd:
   - sysctl --system
 ```
 
-### 5.4 ディスク / cloud-init seed ISO 作成
+### 5.4 VM用ディスク および cloud-init seed ISO 作成
 ```bash
 cd /var/lib/libvirt/images
-cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host01.qcow2
-
-cd /var/lib/libvirt/images/cloud-init
-cloud-localds host01-seed.iso user-data-host.yaml meta-data.yaml
+for i in {00..04}; do
+  cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host${i}.qcow2
+done
 ```
-※ host02〜host04、host00 作成時は<br>
-ディスク名、seed ISO 名、user-data を変更する。
-
-### 5.5 VM 作成 (host01-04, host00)
 ```bash
-cd /var/lib/libvirt/images
+cd /var/lib/libvirt/cloud-init
+for i in {00..04}; do
+   if [[ "$i" == "00" ]]; then
+    cloud-localds host00-seed.iso user-data-router.yaml meta-data-host00.yaml
+  else
+    cloud-localds host${i}-seed.iso user-data-host.yaml meta-data-host${i}.yaml
+done
+```
 
-
-cp AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 host01.qcow2
-
-# cloud-init seed ISO 作成
-cd /var/lib/libvirt/images/cloud-init
-cloud-localds host01-seed.iso user-data-host.yaml meta-data.yaml
-
-# VM 作成
+### 5.5 VM 作成
+```bash
 virt-install \
   --name host01 \
   --memory 1024 \
@@ -259,9 +252,10 @@ virt-install \
   --console pty,target_type=serial \
   --import
 ```
-※ host02 は network1 を指定する。<br>
-※ host03・host04 は network2 を指定する。<br>
-※ host00 は `--network` を 3 回指定し、`default → network1 → network2` の順で接続する。
+- host02：`network1`を指定する
+- host03、host04：`network2`を指定する
+- host00 は `--network` を 3 回指定し、<br>
+  `default → network1 → network2` の順で接続する。
 
 ## 6. VM 設定
 
