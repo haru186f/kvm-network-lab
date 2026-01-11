@@ -4,30 +4,32 @@ timezone: Asia/Tokyo
 locale: en_US.UTF-8
 
 users:
-  - default
   - name: haru
+    groups: wheel
     sudo: ALL=(ALL) NOPASSWD:ALL
-    groups: [wheel]
     shell: /bin/bash
     lock_passwd: true
     ssh_authorized_keys:
       - ssh-ed25519 ...
 
-disable_root: true
 ssh_pwauth: false
+disable_root: true
 
 package_update: true
-package_upgrade: false
+package_upgrade: true
 packages:
   - vim
   - chrony
   - iproute
   - iputils
+  - nftables
   - tcpdump
   - traceroute
   - bind-utils
 
 runcmd:
-  - systemctl enable --now chronyd
-  - systemctl disable --now firewalld
-  - systemctl set-default multi-user.target
+  - setenforce 0
+  - sed -i -e 's/^\SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+  - systemctl stop firewalld
+  - systemctl disable firewalld
+  - systemctl restart rsyslog

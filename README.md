@@ -12,8 +12,8 @@ LPIC-102の nmcli / ip コマンドの理解を深めるために、
   - host00: Router
   - host01-04: Host
 - Network
-  - network1: 172.16.0.0/16
-  - network2: 172.17.0.0/16
+  - network1: 172.16.0.0/24
+  - network2: 172.17.0.0/24
   - host00(Router)が2つのネットワークを中継
 
 ## ネットワーク構成図
