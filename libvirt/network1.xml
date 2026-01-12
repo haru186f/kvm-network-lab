@@ -2,5 +2,5 @@
     <name>network1</name>
     <bridge name='br-net1' stp='on' delay='0'/>
     <forward mode='nat'/>
-    <ip address='172.16.255.254' netmask='255.255.0.0'/>
+    <ip address='172.16.0.254' netmask='255.255.0.0'/>
 </network>

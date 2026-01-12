@@ -2,8 +2,8 @@
 
 ## 1. 目的
 本手順書は、AlmaLinux をホストOSとした KVM 環境上に<br>
-複数の仮想ネットワークとルータVMを構築し、<br>
-ネットワーク間疎通を確認することを目的とする。
+複数の仮想ネットワークおよびルータVMを構築し、<br>
+異なるネットワーク間の疎通確認を行うことを目的とする。
 
 ## 2. 前提条件
 - Host OS: AlmaLinux 9
@@ -24,7 +24,7 @@ lscpu | grep Virtualization
 Virtualization: VT-x
 ```
 
-### 3.2 KVM / QEMU / libvirt 関連パッケージのインストール
+### 3.2 KVM / libvirt 関連パッケージのインストール
 ```bash
 sudo dnf -y install \
   qemu-kvm \
@@ -47,27 +47,31 @@ sudo systemctl enable --now libvirtd
 sudo usermod -aG libvirt haru
 reboot
 ```
-再起動後、以下が実行できることを確認する。
+再起動後、以下のコマンドが実行できることを確認する。
 ```bash
 virsh list --all
 ```
 
 ## 4. 仮想ネットワークの作成
-本構成では、libvirt の NAT ネットワークを 2 つ作成する。
+本構成では、libvirt NAT ネットワークを 2 つ作成する。
+
+### ネットワーク構成
 - network1
   - セグメント: 172.16.0.0/24
   - ゲートウェイ: 172.16.0.254
-  - ホスト: host01, host02
+  - 接続VM: host01, host02
 - network2
   - セグメント: 172.17.0.0/24
   - ゲートウェイ: 172.17.0.254
-  - ホスト: host03, host04
-- ルータ VM（host00）が両ネットワークを中継する
+  - 接続VM: host03, host04
+- ルータ VM (host00)
+  - network1 と network2 を中継
 
-### 4.1 network1の作成
-network1.xmlを作成する。
+### 4.1 network1 の作成
+network1 用の設定ファイルを作成する。
 ```bash
 cd /var/lib/libvirt/network
+
 cat > network1.xml << EOF
 <network>
   <name>network1</name>
@@ -88,8 +92,8 @@ virsh net-autostart network1
 virsh net-list --all
 ```
 
-### 4.2 network2の作成
-network2.xmlを作成する。
+### 4.2 network2 の作成
+network2 用の設定ファイルを作成する。
 ```bash
 cat > network2.xml << EOF
 <network>
@@ -111,12 +115,11 @@ virsh net-autostart network2
 virsh net-list --all
 ```
 
-## 5. VM 作成（cloud-init）
+## 5. VM の作成（cloud-init）
 本章では cloud-init を利用して、<br>
-ホスト VM（host01–host04）および ルータ VM (host00) を作成する。
+ホスト VM（host01～host04）および ルータ VM (host00) を作成する。
 
 ### 5.1 meta-data の作成
-cloud-init 用の meta-data を作成する。
 ```bash
 sudo mkdir -p /var/lib/libvirt/images/cloud-init
 cd /var/lib/libvirt/images/cloud-init
@@ -129,7 +132,6 @@ EOF
 同様の手順で host01 ～ host04 用の meta-data を作成する。
 
 ### 5.2 user-data の作成
-すべての VM で共通の user-data を作成する。
 ```bash
 cat > user-data << EOF
 #cloud-config
@@ -171,16 +173,15 @@ EOF
 ```
 
 ### 5.3 AlmaLinux Cloud Image の取得
-cloud-init 対応の AlmaLinux Cloud Image を取得する。
 ```bash
 sudo mkdir -p /var/lib/libvirt/images/base
 cd /var/lib/libvirt/images/base
 
-curl -LO https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
+curl -LO \
+https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
 ```
 
-### 5.4 VM用ディスク の作成
-ベースイメージを backing file とした qcow2 形式の差分ディスクを作成する。
+### 5.4 VM 用ディスク の作成
 ```bash
 sudo mkdir -p /var/lib/libvirt/images/vm
 
@@ -192,7 +193,6 @@ sudo qemu-img create \
 同様の手順で host01～host04 用のディスクを作成する。
 
 ### 5.5 cloud-init seed ISO の作成
-meta-data および user-data から seed ISO を作成する。
 ```bash
 cd /var/lib/libvirt/images/cloud-init
 
@@ -201,29 +201,69 @@ cloud-localds seed-host00.iso user-data meta-data-host0
 同様の手順で host01～host04 用の seed ISO を作成する。
 
 ### 5.5 VM の作成（virt-install）
-VM の作成（virt-install）
+virt-install を用いて VM を作成する。<br>
+VM の役割に応じて、接続する仮想ネットワークを指定する。
+
+#### 5.5.1 ルータ VM (host00)
+ルータVM (host00) は以下の3つのネットワークに接続する。
+- `default` (管理用)
+- `network1`
+- `network2`
 ```bash
-virt-install \
+sudo virt-install \
   --name host00 \
   --memory 1024 \
   --vcpus 1 \
   --disk path=/var/lib/libvirt/images/vm/host00.qcow2,format=qcow2 \
   --disk path=/var/lib/libvirt/images/cloud-init/seed-host00.iso,device=cdrom \
   --os-variant almalinux9 \
+  --network network=default,model=virtio \
+  --network network=network1,model=virtio \
+  --network network=network2,model=virtio \
+  --graphics none \
+  --console pty,target_type=serial \
+  --import
+```
+
+#### 5.5.2 ホストVM (network1 側))
+host1 および host2 は network1 に接続する。
+```bash
+sudo virt-install \
+  --name host01 \
+  --memory 1024 \
+  --vcpus 1 \
+  --disk path=/var/lib/libvirt/images/vm/host01.qcow2,format=qcow2 \
+  --disk path=/var/lib/libvirt/images/cloud-init/seed-host01.iso,device=cdrom \
+  --os-variant almalinux9 \
   --network network=network1,model=virtio \
   --graphics none \
   --console pty,target_type=serial \
   --import
 ```
-確認：
+同様の手順で host02 を作成する。
+
+#### 5.5.3 ホスト VM (network2 側)
+host03 および host04 は network2 に接続する。
 ```bash
-virsh list
+sudo virt-install \
+  --name host03 \
+  --memory 1024 \
+  --vcpus 1 \
+  --disk path=/var/lib/libvirt/images/vm/host03.qcow2,format=qcow2 \
+  --disk path=/var/lib/libvirt/images/cloud-init/seed-host03.iso,device=cdrom \
+  --os-variant almalinux9 \
+  --network network=network2,model=virtio \
+  --graphics none \
+  --console pty,target_type=serial \
+  --import
 ```
-- host02：`network1`を指定する
-- host03、host04：`network2`を指定する
-- host00 ：
-  - `--network` を 3 回指定する
-  - `default → network1 → network2` の順で接続する
+同様の手順で host04 を作成する。
+
+#### 5.5.4 作成確認
+作成した VM の一覧を確認する。
+```bash
+virsh list --all
+```
 
 ## 6. VM 設定
 
