@@ -132,12 +132,17 @@ disable_root: true
 
 packages:
   - vim
+  - chrony
   - iproute
   - iputils
   - nftables
   - tcpdump
   - traceroute
   - bind-utils
+
+runcmd:
+  - setenforce 0
+  - sed -i -e 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
 EOF
 ```
 
