@@ -1,6 +1,4 @@
 <network>
     <name>network1</name>
-    <bridge name='br-net1' stp='on' delay='0'/>
-    <forward mode='nat'/>
-    <ip address='172.16.0.254' netmask='255.255.0.0'/>
+    <bridge name='virbr-net1'/>
 </network>

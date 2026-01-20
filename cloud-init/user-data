@@ -15,8 +15,6 @@ users:
 ssh_pwauth: false
 disable_root: true
 
-package_update: true
-package_upgrade: true
 packages:
   - vim
   - chrony
@@ -29,7 +27,4 @@ packages:
 
 runcmd:
   - setenforce 0
-  - sed -i -e 's/^\SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
-  - systemctl stop firewalld
-  - systemctl disable firewalld
-  - systemctl restart rsyslog
+  - sed -i -e 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
