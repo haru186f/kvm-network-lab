@@ -8,12 +8,12 @@ users:
     groups: wheel
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
-    lock_passwd: true
-    ssh_authorized_keys:
+    lock_passwd: true     # パスワードログインを無効化
+    ssh_authorized_keys:  # SSH 公開鍵
       - ssh-ed25519 ...
 
-ssh_pwauth: false
-disable_root: true
+ssh_pwauth: false         # SSH のパスワード認証を無効化
+disable_root: true        # root ユーザでの SSH ログインを無効化
 
 packages:
   - vim
@@ -26,5 +26,6 @@ packages:
   - bind-utils
 
 runcmd:
+  # SELINUXを無効化
   - setenforce 0
-  - sed -i -e 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+  - sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config

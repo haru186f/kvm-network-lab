@@ -13,7 +13,7 @@
 - 管理方法: SSH（Tailscale 経由）
 - 実行ユーザ: root
 
-## 3. ホストOS準備
+## 3. ホスト OS の準備
 
 ### 3.1 仮想化支援機能の確認
 CPU が仮想化支援機能（Intel VT-x）に対応していることを確認する。
@@ -76,9 +76,13 @@ cat > network1.xml << EOF
 </network>
 EOF
 
+# ネットワークを定義・起動する
 virsh net-define network1.xml
 virsh net-start network1
 virsh net-autostart network1
+
+# 確認
+virsh net-list --all
 ```
 
 ### 4.2 network2 の作成
@@ -90,9 +94,13 @@ cat > network2.xml << EOF
 </network>
 EOF
 
+# ネットワークを定義・起動する
 virsh net-define network2.xml
 virsh net-start network2
 virsh net-autostart network2
+
+# 確認
+virsh net-list --all
 ```
 
 ## 5. 仮想マシンの作成（cloud-init）
@@ -123,12 +131,12 @@ users:
     groups: wheel
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
-    lock_passwd: true
-    ssh_authorized_keys:
+    lock_passwd: true     # パスワードログインを無効化
+    ssh_authorized_keys:  # SSH 公開鍵
       - ssh-ed25519 ...
 
-ssh_pwauth: false
-disable_root: true
+ssh_pwauth: false         # SSH のパスワード認証を無効化
+disable_root: true        # root ユーザでの SSH ログインを無効化
 
 packages:
   - vim
@@ -141,8 +149,10 @@ packages:
   - bind-utils
 
 runcmd:
+  # SELINUXを無効化
   - setenforce 0
-  - sed -i -e 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+  - sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
+
 EOF
 ```
 
@@ -173,7 +183,10 @@ done
 cd /var/lib/libvirt/images/cloud-init
 
 for i in {00..04}; do
-  cloud-localds seed-host${i}.iso user-data meta-data-host${i}
+  cloud-localds \
+    seed-host${i}.iso \
+    user-data \
+    meta-data-host${i}
 done
 ```
 
@@ -192,6 +205,9 @@ virt-install \
   --graphics none \
   --console pty,target_type=serial \
   --import
+
+# 確認
+virsh list --all
 ```
 
 ### 5.7 ホスト VM の作成（host01-04）
@@ -215,6 +231,9 @@ for i in {01..04}; do
     --console pty,target_type=serial \
     --import
 done
+
+# 確認
+virsh list --all
 ```
 
 ## 6. VM 設定
