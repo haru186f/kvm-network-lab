@@ -25,7 +25,7 @@ lscpu | grep Virtualization
 Virtualization: VT-x
 ```
 
-### 3.2 KVM / libvirt 関連パッケージのインストール
+### 3.2 KVM / QEMU / libvirt 関連パッケージのインストール
 ```bash
 dnf update
 
@@ -152,7 +152,6 @@ runcmd:
   # SELINUXを無効化
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
-
 EOF
 ```
 
@@ -206,6 +205,10 @@ virt-install \
   --console pty,target_type=serial \
   --import
 
+# VM を起動する
+virsh start host00
+virsh autostart host00
+
 # 確認
 virsh list --all
 ```
@@ -230,6 +233,10 @@ for i in {01..04}; do
     --graphics none \
     --console pty,target_type=serial \
     --import
+
+    # VM を起動する
+    virsh start host${i}
+    virsh autostart host${i}
 done
 
 # 確認

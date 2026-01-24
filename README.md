@@ -56,5 +56,5 @@ KVM / QEMU / libvirt による仮想化基盤や cloud-init を用いた VM 作�
 ## 今後の課題
 - cloud-init や libvirt などドキュメントは基本的に英語で書かれているので、英語を学ぶ必要があると感じた
 - 今回学んだ KVM / QEMU / libvirt による仮想化基盤の構築や、cloud-init による VM 作成を、今後のサーバ構築に活かしていきたい
-- クラウド環境の構築で利用されることが多い Terraform を用いて、仮想マシンやネットワーク構成をコードで管理・自動化する手法を学習していきたい
-  - `terraform-provider-libvirt` を用いることで KVM / libvirt 環境でもインフラをコード化することが可能
+- Docker などのコンテナ技術についても学習し、仮想マシンとの違いや用途に応じた使い分けを理解していきたい
+- Ansible などの IaC（Infrastructure as Code）ツールを使って、VM 作成や各種設定を自動化することにも挑戦してみたい
