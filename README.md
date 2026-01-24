@@ -1,11 +1,11 @@
-# KVM Network Lab (AlmaLinux)
+# KVM Network Lab
 
 ## 概要
 LPIC-102 の nmcli / ip コマンドの理解を深めるために、<br>
 自宅ミニPC上の KVM を用いて仮想ネットワーク環境を構築しました。
 
 あわせて、LPIC-202 で扱われるサーバ構築分野の学習に向けた準備として、<br>
-KVM / libvirt による仮想化基盤や cloud-init を用いた VM 作成手法の学習も目的としています。
+KVM / QEMU / libvirt による仮想化基盤や cloud-init を用いた VM 作成手法の学習も目的としています。
 
 ## 構成
 - Host OS: AlmaLinux
@@ -23,7 +23,7 @@ KVM / libvirt による仮想化基盤や cloud-init を用いた VM 作成手�
 ![network](architecture/network-diagram.drawio.png)
 
 ## 実施内容
-- KVM / libvirt を用いた仮想化基盤の構築
+- KVM / QEMU / libvirt を用いた仮想化基盤の構築
 - cloud-init による VM の自動作成・初期設定
 - libvirt isolated ネットワーク（network1 / network2）の作成
 - nmcli を用いた IP アドレス・デフォルトルートの設定
@@ -32,6 +32,10 @@ KVM / libvirt による仮想化基盤や cloud-init を用いた VM 作成手�
 - ping / traceroute を用いた異なるネットワーク間の疎通確認
 
 ## 苦労したこと・学び
+- KVM / QEMU / libvirt の役割を理解できた
+  - KVM: Linux カーネルに組み込まれた仮想化技術（Linux を Type 1 ハイパバイザーとして動作させる）
+  - QEMU: マシンエミュレーター（KVM と組み合わせることで完全仮想化環境を提供）
+  - libvirt: KVM/QEMU などの仮想化基盤を統一的に管理・操作するためのインターフェース
 - EC2 などでも利用される cloud-init を用いた VM 作成手順を学ぶことができた
 - NAT / bridge / isolated ネットワークの違いを理解できた
   - NAT: 内部ネットワークと外部ネットワークを区別し、アドレス変換を行う（ルータなど内外の境界に設定する）
@@ -51,6 +55,6 @@ KVM / libvirt による仮想化基盤や cloud-init を用いた VM 作成手�
 
 ## 今後の課題
 - cloud-init や libvirt などドキュメントは基本的に英語で書かれているので、英語を学ぶ必要があると感じた
-- 今回学んだ KVM / libvirt による仮想化基盤の構築や、cloud-init による VM 作成を、今後のサーバ構築に活かしていきたい
+- 今回学んだ KVM / QEMU / libvirt による仮想化基盤の構築や、cloud-init による VM 作成を、今後のサーバ構築に活かしていきたい
 - クラウド環境の構築で利用されることが多い Terraform を用いて、仮想マシンやネットワーク構成をコードで管理・自動化する手法を学習していきたい
   - `terraform-provider-libvirt` を用いることで KVM / libvirt 環境でもインフラをコード化することが可能
