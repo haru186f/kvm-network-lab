@@ -25,17 +25,18 @@ lscpu | grep Virtualization
 Virtualization: VT-x
 ```
 
-### 3.2 KVM / QEMU / libvirt 関連パッケージのインストール
+### 3.2 パッケージのインストール
 ```bash
-dnf update
+dnf update -y
 
-dnf -y install \
+dnf install -y \
   qemu-kvm \
   libvirt \
   libvirt-daemon \
   libvirt-daemon-config-network \
   libvirt-daemon-driver-qemu \
-  virt-install
+  virt-install \
+  genisoimage
 ```
 
 ### 3.3 libvirtd の起動と有効化
@@ -138,6 +139,8 @@ users:
 ssh_pwauth: false         # SSH のパスワード認証を無効化
 disable_root: true        # root ユーザでの SSH ログインを無効化
 
+package_update: true
+package_upgrade: false
 packages:
   - vim
   - chrony
@@ -170,20 +173,24 @@ mkdir -p /var/lib/libvirt/images/vm
 
 for i in {00..04}; do
   qemu-img create \
+    -F qcow2 \
     -f qcow2 \
     -b /var/lib/libvirt/images/base/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 \
-    /var/lib/libvirt/images/vm/host${i}.qcow2
+    /var/lib/libvirt/images/vm/host${i}.qcow2 \
     20G
 done
 ```
 
-### 5.5 cloud-init seed ISO の作成
+### 5.5 ISO イメージの作成
 ```bash
 cd /var/lib/libvirt/images/cloud-init
 
 for i in {00..04}; do
-  cloud-localds \
-    seed-host${i}.iso \
+  genisoimage \
+    -output seed-host${i}.iso \
+    -volid cidata \
+    -joliet \
+    -rock \
     user-data \
     meta-data-host${i}
 done
@@ -195,19 +202,15 @@ virt-install \
   --name host00 \
   --memory 1024 \
   --vcpus 1 \
-  --disk path=/var/lib/libvirt/images/vm/host00.qcow2,format=qcow2 \
+  --disk path=/var/lib/libvirt/images/vm/host00.qcow2,format=qcow2,bus=virtio \
   --disk path=/var/lib/libvirt/images/cloud-init/seed-host00.iso,device=cdrom \
   --os-variant almalinux9 \
   --network network=default,model=virtio \
   --network network=network1,model=virtio \
   --network network=network2,model=virtio \
-  --graphics none \
-  --console pty,target_type=serial \
-  --import
-
-# VM を起動する
-virsh start host00
-virsh autostart host00
+  --import \
+  --autostart \
+  --noautoconsole
 
 # 確認
 virsh list --all
@@ -226,17 +229,13 @@ for i in {01..04}; do
     --name host${i} \
     --memory 1024 \
     --vcpus 1 \
-    --disk path=/var/lib/libvirt/images/vm/host${i}.qcow2,format=qcow2 \
+    --disk path=/var/lib/libvirt/images/vm/host${i}.qcow2,format=qcow2,bus=virtio \
     --disk path=/var/lib/libvirt/images/cloud-init/seed-host${i}.iso,device=cdrom \
     --os-variant almalinux9 \
     --network network=${NET},model=virtio \
-    --graphics none \
-    --console pty,target_type=serial \
-    --import
-
-    # VM を起動する
-    virsh start host${i}
-    virsh autostart host${i}
+    --import \
+    --autostart \
+    --noautoconsole
 done
 
 # 確認
