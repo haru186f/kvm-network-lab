@@ -68,9 +68,7 @@ usermod -aG libvirt haru
 
 ### 4.1 network1 の作成
 ```bash
-cd /var/lib/libvirt/network
-
-cat > network1.xml << EOF
+cat > /var/lib/libvirt/network/network1.xml << EOF
 <network>
   <name>network1</name>
   <bridge name='virbr-net1'/>
@@ -78,7 +76,7 @@ cat > network1.xml << EOF
 EOF
 
 # ネットワークを定義・起動する
-virsh net-define network1.xml
+virsh net-define /var/lib/libvirt/network/network1.xml
 virsh net-start network1
 virsh net-autostart network1
 
@@ -88,7 +86,7 @@ virsh net-list --all
 
 ### 4.2 network2 の作成
 ```bash
-cat > network2.xml << EOF
+cat > /var/lib/libvirt/network/network2.xml << EOF
 <network>
   <name>network2</name>
   <bridge name='virbr-net2'/>
@@ -96,7 +94,7 @@ cat > network2.xml << EOF
 EOF
 
 # ネットワークを定義・起動する
-virsh net-define network2.xml
+virsh net-define /var/lib/libvirt/network/network2.xml
 virsh net-start network2
 virsh net-autostart network2
 
@@ -106,22 +104,61 @@ virsh net-list --all
 
 ## 5. 仮想マシンの作成（cloud-init）
 
-### 5.1 meta-data の作成
+### ディレクトリ構成
 ```bash
-mkdir -p /var/lib/libvirt/images/cloud-init
-cd /var/lib/libvirt/images/cloud-init
+/var/lib/libvirt/images
+├── base
+│   └── AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
+└── vms
+    ├── host00
+    │   ├── disk.qcow2
+    │   ├── seed.iso
+    │   ├── user-data
+    │   └── meta-data
+    ├── host01
+    │   ├── disk.qcow2
+    │   ├── seed.iso
+    │   ├── user-data
+    │   └── meta-data
+    ├── host02
+    │   ├── disk.qcow2
+    │   ├── seed.iso
+    │   ├── user-data
+    │   └── meta-data
+    ├── host03
+    │   ├── disk.qcow2
+    │   ├── seed.iso
+    │   ├── user-data
+    │   └── meta-data
+    └── host04
+        ├── disk.qcow2
+        ├── seed.iso
+        ├── user-data
+        └── meta-data
+```
 
+### 5.1 VM用ディレクトリの作成
+```bash
+mkdir -p /var/lib/libvirt/images/vms
+mkdir -p /var/lib/libvirt/images/base
+```
+
+### 5.2 meta-data / user-data の作成
+```bash
 for i in {00..04}; do
-  cat > meta-data-host${i} << EOF
+  DIR=/var/lib/libvirt/images/vms/host${i}
+
+  # vm 用ディレクトリを作成
+  mkdir -p $DIR
+
+  # meta-data を作成
+  cat > $DIR/meta-data << EOF
 instance-id: host${i}
 local-hostname: host${i}
 EOF
-done
-```
 
-### 5.2 user-data の作成
-```bash
-cat > user-data << EOF
+  # user-data を作成
+  cat > $DIR/user-data << EOF
 #cloud-config
 
 timezone: Asia/Tokyo
@@ -131,19 +168,17 @@ users:
   - name: haru
     groups: wheel
     sudo: ALL=(ALL) NOPASSWD:ALL
-    shell: /bin/bash
-    lock_passwd: true     # パスワードログインを無効化
-    ssh_authorized_keys:  # SSH 公開鍵
+    ssh_authorized_keys:
       - ssh-ed25519 ...
 
-ssh_pwauth: false         # SSH のパスワード認証を無効化
-disable_root: true        # root ユーザでの SSH ログインを無効化
+ssh_pwauth: false
+disable_root: true
 
 package_update: true
-package_upgrade: false
+
 packages:
   - vim
-  - chrony
+  - git
   - iproute
   - iputils
   - nftables
@@ -152,96 +187,87 @@ packages:
   - bind-utils
 
 runcmd:
-  # SELINUXを無効化
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
 EOF
+done
 ```
 
 ### 5.3 AlmaLinux Cloud Image の取得
 ```bash
-mkdir -p /var/lib/libvirt/images/base
-cd /var/lib/libvirt/images/base
-
-curl -LO \
+curl -L -o /var/lib/libvirt/images/base/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 \
 https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2
 ```
 
-### 5.4 VM 用差分ディスク の作成
+### 5.4 VM用差分ディスク / ISOイメージの作成
 ```bash
-mkdir -p /var/lib/libvirt/images/vm
-
 for i in {00..04}; do
-  qemu-img create \
-    -F qcow2 \
-    -f qcow2 \
-    -b /var/lib/libvirt/images/base/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 \
-    /var/lib/libvirt/images/vm/host${i}.qcow2 \
-    20G
-done
-```
 
-### 5.5 ISO イメージの作成
-```bash
-cd /var/lib/libvirt/images/cloud-init
+  BASE_DIR=/var/lib/libvirt/images/base
+  VMS_DIR=/var/lib/libvirt/images/vms/host${i}
 
-for i in {00..04}; do
+  # VM用差分ディスクを作成
+  qemu-img create -f qcow2 \
+    -b $BASE_DIR/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2 \
+    $VMS_DIR/disk.qcow2 20G
+
+  # ISOイメージを作成
   genisoimage \
-    -output seed-host${i}.iso \
+    -output $VMS_DIR/seed.iso \
     -volid cidata \
     -joliet \
     -rock \
-    user-data \
-    meta-data-host${i}
+    $VMS_DIR/user-data \
+    $VMS_DIR/meta-data
 done
 ```
 
-### 5.6 ルータ VM の作成（host00）
+### 5.5 VM の作成
 ```bash
-virt-install \
-  --name host00 \
-  --memory 1024 \
-  --vcpus 1 \
-  --disk path=/var/lib/libvirt/images/vm/host00.qcow2,format=qcow2,bus=virtio \
-  --disk path=/var/lib/libvirt/images/cloud-init/seed-host00.iso,device=cdrom \
-  --os-variant almalinux9 \
-  --network network=default,model=virtio \
-  --network network=network1,model=virtio \
-  --network network=network2,model=virtio \
-  --import \
-  --autostart \
-  --noautoconsole
+for i in {00..04}; do
 
-# 確認
-virsh list --all
-```
+  DIR=/var/lib/libvirt/images/vms/host${i}
 
-### 5.7 ホスト VM の作成（host01-04）
-```bash
-for i in {01..04}; do
-  if [[ $i -le  2 ]]; then
-    NET=network1
+  if [[ $i -eq 0 ]]; then
+    virt-install \
+      --name host00 \
+      --memory 1024 \
+      --vcpus 1 \
+      --disk path=$DIR/disk.qcow2,format=qcow2,bus=virtio \
+      --disk path=$DIR/seed.iso,device=cdrom \
+      --os-variant almalinux9 \
+      --network network=default,model=virtio \
+      --network network=network1,model=virtio \
+      --network network=network2,model=virtio \
+      --import \
+      --autostart \
+      --noautoconsole
   else
-    NET=network2
-  fi
+    if [[ $i -le  2 ]]; then
+      NET=network1
+    else
+      NET=network2
+    fi
 
-  virt-install \
-    --name host${i} \
-    --memory 1024 \
-    --vcpus 1 \
-    --disk path=/var/lib/libvirt/images/vm/host${i}.qcow2,format=qcow2,bus=virtio \
-    --disk path=/var/lib/libvirt/images/cloud-init/seed-host${i}.iso,device=cdrom \
-    --os-variant almalinux9 \
-    --network network=${NET},model=virtio \
-    --import \
-    --autostart \
-    --noautoconsole
+    virt-install \
+      --name host${i} \
+      --memory 1024 \
+      --vcpus 1 \
+      --disk path=$DIR/disk.qcow2,format=qcow2,bus=virtio \
+      --disk path=$DIR/seed.iso,device=cdrom \
+      --os-variant almalinux9 \
+      --network network=default,model=virtio \
+      --network network=${NET},model=virtio \
+      --import \
+      --autostart \
+      --noautoconsole
+  fi
 done
 
 # 確認
 virsh list --all
 ```
 
-## 6. VM 設定
+## 6. VM の設定
 
 ## 7. 疎通確認
