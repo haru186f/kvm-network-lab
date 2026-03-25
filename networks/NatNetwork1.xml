@@ -1,0 +1,13 @@
+<network>
+  <name>NatNetwork1</name>
+  <forward mode="nat">
+    <port start="1024" end="65535"/>
+  </forward>
+  <bridge name="virbr1" stp="on" delay="0"/>
+  <domain name="NatNetwork1"/>
+  <ip address="172.16.0.0" netmask="255.255.0.0">
+    <dhcp>
+      <range start="172.16.128.0" end="172.16.255.253"/>
+    </dhcp>
+  </ip>
+</network>
