@@ -1,4 +1,0 @@
-<network>
-    <name>network2</name>
-    <bridge name='virbr-net2'/>
-</network>
