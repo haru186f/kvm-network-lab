@@ -25,9 +25,7 @@
 
 ## 実施手順
 
-### 1. ホストOSの準備
-
-**① 仮想化支援機能の確認**
+### 1. 仮想化支援機能の確認
 CPU が仮想化支援機能（Intel VT-x）に対応していることを確認する。
 ```bash
 lscpu | grep Virtualization
@@ -37,11 +35,10 @@ lscpu | grep Virtualization
 Virtualization: VT-x
 ```
 
-**② パッケージのインストール**
+### 2. パッケージをインストール
 ```bash
-dnf update -y
-
-dnf install -y \
+sudo dnf update -y
+sudo dnf install -y \
   qemu-kvm \
   libvirt \
   libvirt-daemon \
@@ -51,25 +48,31 @@ dnf install -y \
   genisoimage
 ```
 
-**③ libvirtdの起動と自動起動設定**
+### 3. libvirtdの起動と自動起動設定
 ```bash
-systemctl enable --now libvirtd
+sudo systemctl enable --now libvirtd
 ```
 
 
-**④ 一般ユーザーにlibvirtグループへ追加**
-一般ユーザでも VM の操作（起動・停止・一覧表示）を行えるようになる。
+### 4. 一般ユーザーにlibvirtグループへ追加
+一般ユーザでもVM操作（起動・停止・表示）を行えるようになる。
 ```bash
-usermod -aG libvirt haru
+sudo usermod -aG libvirt haru
 ```
 
-### 2. ネットワークの作成
+### 5. NatNetwork1を作成
 
-### 3. 仮想マシンの作成
+### 6. NatNetwork2を作成
 
-### 4. 仮想マシンの設定
+### 7. AlmaHost01を作成
 
-### 5. 疎通確認
+### 8. クローンを作成
+
+### 9. 仮想マシンの設定
+
+### 10. ルーターの設定
+
+### 11. 疎通確認
 
 
 ## 学んだこと
